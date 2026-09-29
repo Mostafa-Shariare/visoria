@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Visoria Detailed System Architecture</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ 
+        startOnLoad: true, 
+        theme: 'base',
+        themeVariables: {
+            primaryColor: '#ffffff',
+            primaryBorderColor: '#000000',
+            lineColor: '#334155',
+            textColor: '#0f172a',
+            fontFamily: 'Arial, sans-serif'
+        },
+        flowchart: {
+            curve: 'basis'
+        }
+    });
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { 
+        background-color: white; 
+        padding: 40px; 
+        font-family: Arial, sans-serif; 
+        display: flex;
+        justify-content: center;
+    }
+    .mermaid { 
+        text-align: center; 
+        width: 1200px;
+    }
+  </style>
+</head>
+<body>
+  <div class="mermaid">
+    flowchart TB
+        classDef hardware fill:#e2e8f0,stroke:#64748b,stroke-width:2px,stroke-dasharray: 5 5;
+        classDef edge fill:#eef2ff,stroke:#4f46e5,stroke-width:2px;
+        classDef ml fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px;
+        classDef backend fill:#fdf4ff,stroke:#d946ef,stroke-width:2px;
+        classDef frontend fill:#f0fdfa,stroke:#0d9488,stroke-width:2px;
+        classDef db fill:#f0f9ff,stroke:#0284c7,stroke-width:2px;
+        classDef person fill:#ffffff,stroke:#000000,stroke-width:2px;
+
+        %% Actors
+        Student["<i class='fa-solid fa-user-graduate fa-2x'></i><br/>Student"]:::person
+        Teacher["<i class='fa-solid fa-person-chalkboard fa-2x'></i><br/>Teacher"]:::person
+
+        subgraph EdgeEnvironment["1. Student Edge Environment (Local Machine)"]
+            direction TB
+            Camera["<i class='fa-solid fa-video'></i> Web Camera"]:::hardware
+            
+            subgraph EdgeApp["Student Edge Client (Python / OpenCV)"]
+                direction TB
+                FrameCapture["Frame Capture (60 FPS)"]:::edge
+                
+                subgraph CVPipeline["Computer Vision Pipeline"]
+                    direction LR
+                    MP["MediaPipe<br/>(478 Face Landmarks,<br/>Iris Tracking, Hands)"]:::ml
+                    YOLO["YOLOv8n<br/>(Mobile Phone Detection)"]:::ml
+                end
+                
+                FeatureEng["Feature Engineering<br/>(23 Signals: Face/Phone Dist,<br/>Pitch, Yaw, EAR)"]:::ml
+                RFModel["Random Forest Classifier<br/>(Calibrated Model)"]:::ml
+                Smoother["Temporal Smoother<br/>(15-Frame Moving Average)"]:::ml
+                Explainability["Behavioral Explainability<br/>(SHAP Heuristics)"]:::ml
+                
+                FrameCapture --> CVPipeline
+                MP --> FeatureEng
+                YOLO --> FeatureEng
+                FeatureEng --> RFModel
+                RFModel --> Smoother
+                Smoother --> Explainability
+            end
+        end
+
+        subgraph CloudEnvironment["2. Cloud Infrastructure"]
+            direction TB
+            subgraph Backend["FastAPI Backend Server"]
+                direction TB
+                WSRouter["<i class='fa-solid fa-network-wired'></i> WebSocket Router"]:::backend
+                Auth["JWT Auth & Rate Limiting"]:::backend
+                SessionMgr["Live Session Manager"]:::backend
+                SocraticEngine["Socratic Intervention Engine"]:::backend
+                AlertEngine["Pedagogical Alert Engine<br/>(Hysteresis Thresholds)"]:::backend
+            end
+            
+            MongoDB[("<i class='fa-solid fa-database'></i> MongoDB<br/>- Users & Classes<br/>- Telemetry History<br/>- Socratic Responses")]:::db
+            
+            WSRouter <--> Auth
+            WSRouter <--> SessionMgr
+            SessionMgr --> AlertEngine
+            SessionMgr <--> MongoDB
+            SocraticEngine <--> MongoDB
+        end
+
+        subgraph TeacherEnvironment["3. Teacher Environment"]
+            direction TB
+            subgraph WebApp["React 19 Web Portal"]
+                direction TB
+                LiveDash["Live Monitoring Dashboard<br/>(Attention Heatmaps)"]:::frontend
+                Analytics["Historical Analytics<br/>(PDF/Excel Export)"]:::frontend
+                InterventionUI["Socratic Activity Builder<br/>(4-Stage Prompting)"]:::frontend
+            end
+        end
+
+        %% External Connections
+        Student -->|Visual/Behavioral Input| Camera
+        Camera -->|Raw RGB Frames| FrameCapture
+        Explainability -->|JSON Telemetry Payload<br/>(NO VIDEO TRANSMITTED)| WSRouter
+        
+        WSRouter -->|Broadcast Class State| LiveDash
+        AlertEngine -->|Low-Attention Alert| LiveDash
+        InterventionUI -->|Trigger Interventions| SocraticEngine
+        SocraticEngine -->|Broadcast Question| WSRouter
+        WSRouter -->|Interactive Prompt| EdgeApp
+        EdgeApp -->|Student Reflection| Student
+        
+        Teacher -->|Monitors & Intervenes| WebApp
+        Analytics -->|Fetch History| MongoDB
+  </div>
+</body>
+</html>
